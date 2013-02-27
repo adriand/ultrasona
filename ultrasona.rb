@@ -20,6 +20,11 @@ time = Benchmark.realtime do
   hits = []
   large_files = []
 
+  line_count = %x{wc -l '#{file}'}.to_f
+  process_count = 0.0
+  segment_size = (line_count / 10.0).to_i
+  puts "Processing #{line_count.to_i} lines..."
+
   File.open(file).each_line do |line|
     match = line.match(/^(\S+) (\S+) - - \[.*\] "\w+ (\/.*?) .*?" \d* (\d*)/)
     if match
@@ -41,11 +46,17 @@ time = Benchmark.realtime do
         large_files << "#{path} #{mb.round(2)} mb"
       end
     end
+    process_count += 1
+    progress = (process_count / line_count) * 100.0
+    if process_count.to_i == segment_size
+      puts "Processed #{process_count.to_i} lines; #{progress.round(2)}% complete"
+      segment_size += segment_size
+    end
   end
 
   hits.sort! { |a,b| b[:ips].size <=> a[:ips].size }
 
-  puts "#{'DOMAIN'.ljust(40)} #{'Uniques'.ljust(10)} MB\n\n"
+  puts "\n#{'DOMAIN'.ljust(40)} #{'Uniques'.ljust(10)} MB\n\n"
   hits.each do |hit|
     mb = hit[:bytes].to_f / 1024.0 / 1024.0
     puts "#{hit[:host].ljust(40)} #{hit[:ips].size.to_s.ljust(10)} #{mb.round(2)} mb"
